@@ -6,7 +6,7 @@ export type TestEnv = typeof env;
 // ─── DB helpers ──────────────────────────────────────────────────────────────
 
 export async function runMigrations(db: D1Database) {
-  await db.exec(`
+  const sql = `
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY DEFAULT (lower(hex(randomblob(16)))),
       name TEXT NOT NULL,
@@ -161,7 +161,14 @@ export async function runMigrations(db: D1Database) {
       metadata TEXT,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
-  `);
+  `;
+  const statements = sql
+    .split(';')
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  for (const stmt of statements) {
+    await db.prepare(stmt).run();
+  }
 }
 
 // ─── Request helpers ──────────────────────────────────────────────────────────

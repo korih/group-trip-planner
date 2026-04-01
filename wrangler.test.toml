@@ -1,0 +1,32 @@
+name = "group-trip-planner"
+main = "src/index.ts"
+compatibility_date = "2024-12-05"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "group-trip-planner-db"
+database_id = "9dd6b91c-c561-4c47-9561-401ffab73a64"
+migrations_dir = "src/db/migrations"
+
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "210044bd6e134e31a7a5b682762232fd"
+
+[[r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "group-trip-planner-docs"
+
+[[durable_objects.bindings]]
+name = "TRIP_ROOMS"
+class_name = "TripRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TripRoom"]
+
+# AI binding intentionally omitted — not supported in local test runtime
+
+[vars]
+ENVIRONMENT = "test"
+GOOGLE_CLIENT_ID = "test-client-id"

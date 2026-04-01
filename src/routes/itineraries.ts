@@ -19,6 +19,16 @@ itineraries.get('/', optionalAuth, async (c) => {
   if (!tripId) {
     return c.json({ success: false, error: 'tripId query param is required' }, 400);
   }
+  const userId = c.var.userId;
+  if (userId) {
+    const member = await c.env.DB
+      .prepare('SELECT 1 FROM trip_members WHERE trip_id = ? AND user_id = ?')
+      .bind(tripId, userId)
+      .first();
+    if (!member) {
+      return c.json({ success: false, error: 'Forbidden' }, 403);
+    }
+  }
   const items = await getItineraryByTrip(c.env.DB, tripId);
   return c.json({ success: true, data: items });
 });
@@ -36,9 +46,9 @@ itineraries.get('/:id', optionalAuth, async (c) => {
 itineraries.post('/', requireAuth, async (c) => {
   const body = await c.req.json<CreateItineraryItemInput>();
 
-  if (!body.trip_id || !body.title || !body.item_date || !body.category) {
+  if (!body.trip_id || !body.title || !body.item_date) {
     return c.json(
-      { success: false, error: 'trip_id, title, item_date, and category are required' },
+      { success: false, error: 'trip_id, title, and item_date are required' },
       400,
     );
   }
@@ -50,6 +60,13 @@ itineraries.post('/', requireAuth, async (c) => {
 
   if (!member || member.role === 'viewer') {
     return c.json({ success: false, error: 'Forbidden' }, 403);
+  }
+
+  if (!body.category) {
+    return c.json(
+      { success: false, error: 'category is required' },
+      400,
+    );
   }
 
   // Auto-geocode location if provided but no coordinates given
