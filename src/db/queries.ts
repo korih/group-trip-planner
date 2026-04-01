@@ -36,8 +36,8 @@ export async function getUserByEmail(db: D1Database, email: string): Promise<Use
 export async function createUser(db: D1Database, input: CreateUserInput): Promise<User> {
   const id = crypto.randomUUID();
   await db
-    .prepare('INSERT INTO users (id, name, email) VALUES (?, ?, ?)')
-    .bind(id, input.name, input.email)
+    .prepare('INSERT INTO users (id, name, email, google_id, avatar_url, is_guest) VALUES (?, ?, ?, ?, ?, ?)')
+    .bind(id, input.name, input.email, input.google_id ?? null, input.avatar_url ?? null, input.is_guest ?? 0)
     .run();
   const user = await getUserById(db, id);
   if (!user) throw new Error('Failed to create user');
@@ -67,7 +67,7 @@ export async function getTripsByUser(db: D1Database, userId: string): Promise<Tr
   return result.results;
 }
 
-export async function createTrip(db: D1Database, input: CreateTripInput): Promise<Trip> {
+export async function createTrip(db: D1Database, input: CreateTripInput, createdBy: string): Promise<Trip> {
   const id = crypto.randomUUID();
   await db
     .prepare(
@@ -81,14 +81,14 @@ export async function createTrip(db: D1Database, input: CreateTripInput): Promis
       input.destination,
       input.start_date,
       input.end_date,
-      input.created_by
+      createdBy
     )
     .run();
 
   // Automatically add creator as owner
   await db
     .prepare('INSERT INTO trip_members (trip_id, user_id, role) VALUES (?, ?, ?)')
-    .bind(id, input.created_by, 'owner')
+    .bind(id, createdBy, 'owner')
     .run();
 
   const trip = await getTripById(db, id);
@@ -146,7 +146,7 @@ export async function addTripMember(
   db: D1Database,
   tripId: string,
   userId: string,
-  role: MemberRole = 'member'
+  role: MemberRole = 'editor'
 ): Promise<void> {
   await db
     .prepare('INSERT OR IGNORE INTO trip_members (trip_id, user_id, role) VALUES (?, ?, ?)')
@@ -193,14 +193,15 @@ export async function getItineraryItemById(
 
 export async function createItineraryItem(
   db: D1Database,
-  input: CreateItineraryItemInput
+  input: CreateItineraryItemInput,
+  createdBy: string
 ): Promise<ItineraryItem> {
   const id = crypto.randomUUID();
   await db
     .prepare(
       `INSERT INTO itinerary_items
-         (id, trip_id, title, description, location, item_date, start_time, end_time, category, estimated_cost, currency, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         (id, trip_id, title, description, location, lat, lng, item_date, start_time, end_time, category, estimated_cost, currency, order_index, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
       id,
@@ -208,13 +209,16 @@ export async function createItineraryItem(
       input.title,
       input.description ?? null,
       input.location ?? null,
+      input.lat ?? null,
+      input.lng ?? null,
       input.item_date,
       input.start_time ?? null,
       input.end_time ?? null,
       input.category,
       input.estimated_cost ?? null,
       input.currency ?? 'USD',
-      input.created_by
+      input.order_index ?? 0,
+      createdBy
     )
     .run();
 
@@ -234,12 +238,16 @@ export async function updateItineraryItem(
   if (input.title !== undefined) { fields.push('title = ?'); values.push(input.title); }
   if (input.description !== undefined) { fields.push('description = ?'); values.push(input.description); }
   if (input.location !== undefined) { fields.push('location = ?'); values.push(input.location); }
+  if (input.lat !== undefined) { fields.push('lat = ?'); values.push(input.lat); }
+  if (input.lng !== undefined) { fields.push('lng = ?'); values.push(input.lng); }
+  if (input.photo_url !== undefined) { fields.push('photo_url = ?'); values.push(input.photo_url); }
   if (input.item_date !== undefined) { fields.push('item_date = ?'); values.push(input.item_date); }
   if (input.start_time !== undefined) { fields.push('start_time = ?'); values.push(input.start_time); }
   if (input.end_time !== undefined) { fields.push('end_time = ?'); values.push(input.end_time); }
   if (input.category !== undefined) { fields.push('category = ?'); values.push(input.category); }
   if (input.estimated_cost !== undefined) { fields.push('estimated_cost = ?'); values.push(input.estimated_cost); }
   if (input.currency !== undefined) { fields.push('currency = ?'); values.push(input.currency); }
+  if (input.order_index !== undefined) { fields.push('order_index = ?'); values.push(input.order_index); }
 
   if (fields.length === 0) return getItineraryItemById(db, id);
 

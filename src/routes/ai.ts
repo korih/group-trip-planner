@@ -118,6 +118,66 @@ Be specific and practical in your recommendations.`;
   const result = response as { response?: string };
   const suggestions = result.response ?? 'Unable to optimize itinerary at this time.';
 
-  return c.json({ success: true, data: { suggestions, model } });});
+  return c.json({ success: true, data: { suggestions, model } });
+});
+
+// POST /ai/pack-suggestions
+// Generate packing list suggestions for a trip destination
+ai.post('/pack-suggestions', async (c) => {
+  const body = await c.req.json<{
+    destination: string;
+    start_date: string;
+    end_date: string;
+    trip_type?: string;
+  }>();
+
+  if (!body.destination) {
+    return c.json({ success: false, error: 'destination is required' }, 400);
+  }
+
+  const durationDays = body.start_date && body.end_date
+    ? Math.ceil((new Date(body.end_date).getTime() - new Date(body.start_date).getTime()) / 86_400_000) + 1
+    : 7;
+
+  const prompt = `You are a travel packing expert. Suggest a concise packing list for a group trip.
+
+Destination: ${body.destination}
+Duration: ${durationDays} days
+Trip type: ${body.trip_type ?? 'general travel'}
+
+Provide a JSON array of packing items. Each item should have:
+- "label": string (item name)
+- "category": one of "clothing", "toiletries", "documents", "electronics", "medical", "general"
+
+Return ONLY the JSON array, no other text. Example format:
+[{"label": "Passport", "category": "documents"}, {"label": "T-shirts (5)", "category": "clothing"}]
+
+Limit to 20-30 essential items.`;
+
+  const model = '@cf/meta/llama-3.1-8b-instruct-fp8' as const;
+
+  const response = await c.env.AI.run(model, {
+    messages: [
+      { role: 'system', content: 'You are a travel packing expert. Always respond with valid JSON arrays only.' },
+      { role: 'user', content: prompt },
+    ],
+  });
+
+  const result = response as { response?: string };
+  const raw = result.response ?? '[]';
+
+  let items: Array<{ label: string; category: string }> = [];
+  try {
+    // Extract JSON array from response (model may include extra text)
+    const match = raw.match(/\[[\s\S]*\]/);
+    if (match) {
+      items = JSON.parse(match[0]);
+    }
+  } catch {
+    // Return empty if parsing fails
+  }
+
+  return c.json({ success: true, data: { items, model } });
+});
 
 export default ai;

@@ -3,18 +3,45 @@ main = "src/index.ts"
 compatibility_date = "2024-12-05"
 compatibility_flags = ["nodejs_compat"]
 
+[triggers]
+custom_domains = ["api.group-planner.korih.com"]
+
+# D1 Database
 [[d1_databases]]
 binding = "DB"
 database_name = "group-trip-planner-db"
-database_id = "your-d1-database-id"
+database_id = "9dd6b91c-c561-4c47-9561-401ffab73a64"
 migrations_dir = "src/db/migrations"
 
+# KV Namespace (sessions, cache, invite tokens)
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "your-kv-namespace-id"
+id = "210044bd6e134e31a7a5b682762232fd"
 
+# R2 Bucket (document/file storage)
+[[r2_buckets]]
+binding = "DOCUMENTS"
+bucket_name = "group-trip-planner-docs"
+
+# Durable Objects (real-time WebSocket hub per trip)
+[[durable_objects.bindings]]
+name = "TRIP_ROOMS"
+class_name = "TripRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["TripRoom"]
+
+# Cloudflare Workers AI
 [ai]
 binding = "AI"
 
+# Environment variables (non-secret)
 [vars]
-ENVIRONMENT = "development"
+ENVIRONMENT = "production"
+GOOGLE_CLIENT_ID = "854329835236-5t6nsmm7tgtstcdk1tvej08708efravq.apps.googleusercontent.com"
+
+# Secrets (set via: wrangler secret put <NAME>)
+# GOOGLE_CLIENT_SECRET
+# JWT_SECRET
+# FRONTEND_URL
